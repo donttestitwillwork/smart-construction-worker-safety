@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>Smart Safety Dashboard</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:'Inter',sans-serif;
+  background:#0f172a;
+  color:white;
+  padding:30px;
+}
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:30px;
+  flex-wrap:wrap;
+}
+
+.title h1{
+  font-size:38px;
+  color:#00ffd5;
+}
+
+.title p{
+  color:#94a3b8;
+  margin-top:8px;
+}
+
+.system-status{
+  background:#1e293b;
+  padding:15px 25px;
+  border-radius:16px;
+  border:1px solid #334155;
+}
+
+.system-status span{
+  color:#22c55e;
+  font-weight:bold;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+  gap:25px;
+  margin-bottom:25px;
+}
+
+.card{
+  background:#1e293b;
+  border-radius:24px;
+  padding:25px;
+  border:1px solid #334155;
+  box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+.card h2{
+  margin-bottom:20px;
+  font-size:24px;
+}
+
+.status{
+  font-size:30px;
+  font-weight:bold;
+}
+
+.safe{
+  color:#22c55e;
+}
+
+.danger{
+  color:#ef4444;
+}
+
+.alert{
+  animation:pulse 1s infinite;
+}
+
+@keyframes pulse{
+  0%{box-shadow:0 0 5px red;}
+  50%{box-shadow:0 0 25px red;}
+  100%{box-shadow:0 0 5px red;}
+}
+
+.info{
+  margin-top:15px;
+  color:#cbd5e1;
+  line-height:1.8;
+}
+
+.info span{
+  color:#64748b;
+}
+
+#map{
+  height:400px;
+  border-radius:20px;
+  overflow:hidden;
+}
+
+.chart-card{
+  margin-top:25px;
+}
+
+canvas{
+  background:white;
+  border-radius:16px;
+  padding:10px;
+}
+
+.emergency-banner{
+  display:none;
+  background:linear-gradient(to right,#7f1d1d,#ef4444);
+  padding:18px;
+  border-radius:18px;
+  margin-bottom:25px;
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  animation:blink 1s infinite;
+}
+
+@keyframes blink{
+  0%{opacity:1;}
+  50%{opacity:0.7;}
+  100%{opacity:1;}
+}
+
+.footer{
+  margin-top:40px;
+  text-align:center;
+  color:#64748b;
+}
+
+a{
+  color:#00ffd5;
+  text-decoration:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+
+<div class="header">
+
+  <div class="title">
+    <h1>⛑️ Smart Safety Dashboard</h1>
+    <p>Real-Time Construction Site Monitoring helmet </p>
+  </div>
+
+  <div class="system-status">
+    System Status:
+    <span>ONLINE</span>
+  </div>
+
+</div>
+
+<!-- ALERT -->
+
+<div id="emergencyBanner" class="emergency-banner">
+  🚨 ACCIDENT DETECTED — EMERGENCY ALERT 🚨
+</div>
+<!-- STATUS -->
+<div class="grid">
+
+  <!-- Safety -->
+
+  <div class="card" id="accidentCard">
+
+    <h2>⚠️ Safety Status</h2>
+
+    <div id="accident" class="status">
+      Loading...
+    </div>
+
+    <div class="info">
+      <p><span>Monitoring:</span> Active</p>
+      <p><span>Sensor:</span> MPU6050</p>
+      <p><span>Update:</span> Real-Time</p>
+    </div>
+
+  </div>
+
+  <!-- GPS -->
+
+  <div class="card">
+
+    <h2>📍 GPS Location</h2>
+
+    <div class="info">
+
+      <p id="gps">Loading...</p>
+
+      <br>
+
+      <a id="mapLink" href="#" target="_blank">
+        Open in Google Maps
+      </a>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- MAP -->
+
+<div class="card">
+
+  <h2>🌍 Live Tracking Map</h2>
+
+  <div id="map"></div>
+
+</div>
+
+<!-- HISTORY -->
+
+<div class="card chart-card">
+
+  <h2>📊 Accident History</h2>
+
+  <canvas id="historyChart"></canvas>
+
+</div>
+
+<div class="footer">
+  Smart Construction Safety Monitoring System created by Oussema Ayari / Farah Torkhani  
+</div>
+
+<script>
+
+let chart;
+
+// ---------------- MAP ----------------
+
+let map = L.map('map').setView([36.7, 9.1], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap'
+}).addTo(map);
+
+let marker;
+
+let path = [];
+
+let polyline = L.polyline(path,{
+  color:'red',
+  weight:4
+}).addTo(map);
+
+// ---------------- FETCH ----------------
+
+async function fetchData(){
+
+  const res = await fetch('/data');
+
+  const data = await res.json();
+
+  if(data.length === 0) return;
+
+  const latest = data[0];
+
+  // Accident Status
+
+  const accidentCard = document.getElementById("accidentCard");
+
+  if(latest.accident_status){
+
+    document.getElementById("accident").innerHTML =
+      "<span class='danger'>ACCIDENT DETECTED</span>";
+
+    accidentCard.classList.add("alert");
+
+    document.getElementById("emergencyBanner").style.display = "block";
+
+  }else{
+
+    document.getElementById("accident").innerHTML =
+      "<span class='safe'>SAFE</span>";
+
+    accidentCard.classList.remove("alert");
+
+    document.getElementById("emergencyBanner").style.display = "none";
+
+  }
+
+  // GPS
+
+  const lat = latest.latitude;
+  const lng = latest.longitude;
+
+  document.getElementById("gps").innerHTML =
+  `
+    Latitude: ${lat}<br>
+    Longitude: ${lng}
+  `;
+
+  document.getElementById("mapLink").href =
+    `https://www.google.com/maps?q=${lat},${lng}`;
+
+  // PATH TRACKING
+
+  const recent = data.slice(0,20);
+
+  path = [];
+
+  recent.forEach(point=>{
+
+    if(point.latitude && point.longitude){
+
+      path.push([point.latitude,point.longitude]);
+
+    }
+
+  });
+
+  polyline.setLatLngs(path);
+
+  if(path.length > 0){
+
+    const latestPoint = path[0];
+
+    if(marker){
+
+      map.removeLayer(marker);
+
+    }
+
+    marker = L.marker(latestPoint).addTo(map);
+
+    map.setView(latestPoint,15);
+
+  }
+
+}
+// ---------------- CHART ----------------
+
+async function loadChart(){
+
+  const res = await fetch('/data');
+
+  const data = await res.json();
+
+  data.reverse();
+
+  const labels = data.map(d => d.created_at);
+
+  const accidentData = data.map(d => d.accident_status);
+
+  const ctx = document.getElementById('historyChart').getContext('2d');
+
+  if(chart){
+
+    chart.destroy();
+
+  }
+
+  chart = new Chart(ctx,{
+
+    type:'line',
+
+    data:{
+
+      labels:labels,
+
+      datasets:[
+
+        {
+          label:'Accident Detection History',
+          data:accidentData,
+          borderWidth:3,
+          tension:0.4
+        }
+
+      ]
+
+    },
+
+    options:{
+
+      responsive:true,
+
+      plugins:{
+        legend:{
+          labels:{
+            color:'black'
+          }
+        }
+      },
+
+      scales:{
+        x:{
+          ticks:{
+            color:'black'
+          }
+        },
+        y:{
+          ticks:{
+            color:'black'
+          }
+        }
+      }
+
+    }
+
+  });
+
+}
+
+// ---------------- REFRESH ----------------
+
+async function refreshAll(){
+
+  await fetchData();
+
+  await loadChart();
+
+}
+
+setInterval(refreshAll,3000);
+
+refreshAll();
+
+</script>
+
+</body>
+</html>
