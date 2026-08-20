@@ -9,6 +9,7 @@ app.use(express.json());
 // ---------------- DASHBOARD ----------------
 app.use(express.static("public"));
 // ---------------- DATABASE ----------------
+
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
