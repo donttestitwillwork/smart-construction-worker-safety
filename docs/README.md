@@ -73,3 +73,48 @@ This diagram illustrates the communication workflow between the embedded
 system and the backend.
 
 ![Serial Workflow](serial-workflow.png)
+# 📚 Project Documentation
+
+This directory contains the technical documentation, diagrams, workflows,
+and interface screenshots for the Smart Construction Worker Safety
+Monitoring System.
+
+---
+
+## 🏗️ System Architecture
+
+The system combines embedded hardware, wireless communication, a backend
+server, database storage, and a web-based monitoring dashboard.
+
+![Project Schematic](project-schematic.jpg)
+
+### Main Components
+
+```text
+┌──────────────────────┐
+│   Smart Helmet       │
+│      ESP32           │
+├──────────────────────┤
+│ MPU6050              │
+│ NEO-6M GPS           │
+│ Hall Sensor          │
+│ Buzzer               │
+└──────────┬───────────┘
+           │ Wi-Fi
+           ▼
+┌──────────────────────┐
+│   Node.js Backend    │
+│      Express         │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│    MySQL Database    │
+│    smart_helmet      │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│   Web Dashboard      │
+│ Maps • Charts • Alerts│
+└──────────────────────┘
